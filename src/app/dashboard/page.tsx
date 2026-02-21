@@ -1,5 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
+import { DashboardHeaderButtons, CreateGroupEmptyStateButton } from "@/components/DashboardClientButtons";
+import Link from "next/link";
 
 export default async function Dashboard() {
     const supabase = await createClient();
@@ -24,7 +26,7 @@ export default async function Dashboard() {
                         <p className="text-zinc-500 mt-1">Welcome back, {user.user_metadata?.full_name || user.email}</p>
                     </div>
                     <div className="flex items-center gap-4">
-                        <span className="text-sm border border-zinc-200 bg-white px-3 py-1.5 rounded-full font-medium">
+                        <span className="text-sm border border-zinc-200 bg-white px-3 py-1.5 rounded-full font-medium hidden sm:inline-block">
                             {user.email}
                         </span>
                         <form action="/auth/signout" method="post">
@@ -38,25 +40,23 @@ export default async function Dashboard() {
                 <section className="bg-white rounded-2xl shadow-sm border border-zinc-200 p-8">
                     <div className="flex items-center justify-between mb-6">
                         <h2 className="text-xl font-bold">Your Groups</h2>
-                        <button className="bg-zinc-900 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-zinc-800 transition">
-                            + New Group
-                        </button>
+                        <DashboardHeaderButtons />
                     </div>
 
                     {!groups || groups.length === 0 ? (
                         <div className="text-center py-12 border-2 border-dashed border-zinc-200 rounded-xl">
                             <p className="text-zinc-500 mb-4">You aren't in any travel groups yet.</p>
-                            <button className="text-zinc-900 font-semibold underline decoration-2 decoration-zinc-300 underline-offset-4 hover:decoration-zinc-900 transition-colors">
-                                Create one now
-                            </button>
+                            <CreateGroupEmptyStateButton />
                         </div>
                     ) : (
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                             {groups.map((group) => (
-                                <div key={group.id} className="border border-zinc-200 rounded-xl p-5 hover:border-zinc-400 cursor-pointer transition-colors">
-                                    <h3 className="font-semibold text-lg">{group.name}</h3>
-                                    {group.description && <p className="text-zinc-500 text-sm mt-1 line-clamp-2">{group.description}</p>}
-                                </div>
+                                <Link href={`/groups/${group.id}`} key={group.id} className="block group">
+                                    <div className="border border-zinc-200 rounded-xl p-5 group-hover:border-zinc-400 group-hover:shadow-sm cursor-pointer transition-all h-full bg-white">
+                                        <h3 className="font-semibold text-lg">{group.name}</h3>
+                                        {group.description && <p className="text-zinc-500 text-sm mt-1 line-clamp-2">{group.description}</p>}
+                                    </div>
+                                </Link>
                             ))}
                         </div>
                     )}
