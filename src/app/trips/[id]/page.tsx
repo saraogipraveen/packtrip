@@ -2,20 +2,24 @@ import { createClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 import Link from "next/link"
 import { AddExpenseButton } from "@/components/AddExpenseButton"
+import { AddItineraryButton } from "@/components/AddItineraryButton"
 import { calculateBalances } from "@/lib/balances"
 import { SettleUpButton } from "@/components/SettleUpButton"
 
-export default async function TripPage({ params }: { params: { id: string } }) {
+export default async function TripPage({ params }: { params: Promise<{ id: string }> }) {
     const supabase = await createClient()
 
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) redirect("/login")
 
+    const resolvedParams = await params
+    const id = resolvedParams.id
+
     // Fetch the current trip
     const { data: trip, error: tripError } = await supabase
         .from("trips")
         .select("*, group:groups(name)")
-        .eq("id", params.id)
+        .eq("id", id)
         .single()
 
     if (tripError || !trip) {
@@ -50,6 +54,13 @@ export default async function TripPage({ params }: { params: { id: string } }) {
         .eq("trip_id", trip.id)
         .order("day_date", { ascending: true })
         .order("start_time", { ascending: true })
+
+    const groupedItinerary = itinerary?.reduce((acc: Record<string, any[]>, curr) => {
+        const dateStr = curr.day_date as string
+        if (!acc[dateStr]) acc[dateStr] = []
+        acc[dateStr].push(curr)
+        return acc
+    }, {}) || {}
 
     // Fetch expenses to calculate total
     const { data: expenses } = await supabase
@@ -120,9 +131,7 @@ export default async function TripPage({ params }: { params: { id: string } }) {
                         </div>
 
                         <div className="flex flex-col sm:flex-row gap-3">
-                            <button className="bg-white text-zinc-900 px-5 py-3 md:py-2.5 rounded-xl text-sm font-bold hover:bg-zinc-100 transition shadow-sm w-full sm:w-auto text-center justify-center flex">
-                                Add Itinerary
-                            </button>
+                            <AddItineraryButton tripId={trip.id} startDate={trip.start_date} endDate={trip.end_date} />
                             <div className="w-full sm:w-auto flex">
                                 <AddExpenseButton tripId={trip.id} members={safeMembers} />
                             </div>
@@ -163,25 +172,39 @@ export default async function TripPage({ params }: { params: { id: string } }) {
                                 You haven't scheduled anything for this trip yet.
                             </div>
                         ) : (
-                            <div className="flex flex-col gap-4">
-                                {/* Rendering itinerary logically */}
-                                {itinerary.map((item) => (
-                                    <div key={item.id} className="bg-white p-5 rounded-xl border border-zinc-200 shadow-sm flex gap-4">
-                                        <div className="min-w-16 flex flex-col items-center justify-center border-r border-zinc-100 pr-4">
-                                            <span className="text-sm font-bold text-zinc-400">{item.start_time ? item.start_time.substring(0, 5) : "--:--"}</span>
+                            <div className="flex flex-col gap-8">
+                                {Object.entries(groupedItinerary).map(([dateStr, items]) => {
+                                    // Make date string safe for timezone variations (append T12:00:00)
+                                    const safeDate = new Date(`${dateStr}T12:00:00`)
+
+                                    return (
+                                        <div key={dateStr} className="flex flex-col gap-3">
+                                            <h3 className="text-zinc-500 font-bold sticky top-[60px] md:top-[72px] bg-zinc-50 py-2 z-10 w-full">
+                                                {safeDate.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}
+                                            </h3>
+                                            <div className="flex flex-col gap-4">
+                                                {items.map((item) => (
+                                                    <div key={item.id} className="bg-white p-4 sm:p-5 rounded-xl border border-zinc-200 shadow-sm flex flex-col sm:flex-row gap-3 sm:gap-4 relative overflow-hidden group">
+                                                        <div className="sm:min-w-16 flex flex-row sm:flex-col items-center justify-start sm:justify-center border-b sm:border-b-0 sm:border-r border-zinc-100 pb-2 sm:pb-0 sm:pr-4">
+                                                            <span className="text-sm font-bold text-zinc-900 sm:text-zinc-400 bg-zinc-100 sm:bg-transparent px-2 py-0.5 sm:p-0 rounded-md sm:rounded-none">{item.start_time ? item.start_time.substring(0, 5) : "--:--"}</span>
+                                                        </div>
+                                                        <div className="flex-1">
+                                                            <h4 className="font-bold text-lg leading-tight">{item.title}</h4>
+                                                            {item.description && <p className="text-zinc-500 text-sm mt-1">{item.description}</p>}
+                                                            {item.location && (
+                                                                <span className="inline-flex items-center gap-1 text-xs font-medium text-blue-600 bg-blue-50 px-2 py-1 rounded mt-2">
+                                                                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path></svg>
+                                                                    {item.location}
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
                                         </div>
-                                        <div>
-                                            <h4 className="font-bold text-lg">{item.title}</h4>
-                                            {item.description && <p className="text-zinc-500 text-sm mt-1">{item.description}</p>}
-                                            {item.location && (
-                                                <span className="inline-flex items-center gap-1 text-xs font-medium text-blue-600 bg-blue-50 px-2 py-1 rounded mt-2">
-                                                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path></svg>
-                                                    {item.location}
-                                                </span>
-                                            )}
-                                        </div>
-                                    </div>
-                                ))}
+                                    )
+                                }
+                                )}
                             </div>
                         )}
                     </div>

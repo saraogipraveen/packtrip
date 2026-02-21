@@ -38,7 +38,7 @@ export async function createGroup(formData: FormData) {
         console.error("====== SUPABASE INSERTION ERROR ======");
         console.error(JSON.stringify(error, null, 2));
         console.error("======================================");
-        return { error: "Failed to create group" }
+        return { error: `Failed to create group: ${error.message} (Code: ${error.code})` }
     }
 
     revalidatePath("/dashboard")
