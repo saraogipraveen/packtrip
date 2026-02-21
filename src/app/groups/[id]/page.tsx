@@ -3,21 +3,38 @@ import { redirect } from "next/navigation"
 import Link from "next/link"
 import { GroupPageClientButtons, GroupPageEmptyStateButton } from "@/components/GroupClientButtons"
 
-export default async function GroupPage({ params }: { params: { id: string } }) {
+export default async function GroupPage({ params }: { params: Promise<{ id: string }> }) {
     const supabase = await createClient()
 
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) redirect("/login")
 
+    const resolvedParams = await params
+    const id = resolvedParams.id
+
     // Fetch the current group
     const { data: group, error: groupError } = await supabase
         .from("groups")
         .select("*")
-        .eq("id", params.id)
+        .eq("id", id)
         .single()
 
     if (groupError || !group) {
-        redirect("/dashboard")
+        console.error("Group Page Fetch Error:", groupError);
+        return (
+            <div className="min-h-screen bg-zinc-50 flex flex-col items-center justify-center p-4">
+                <div className="bg-white p-8 rounded-2xl shadow-sm border border-red-200 text-center max-w-md">
+                    <h1 className="text-xl font-bold text-red-600 mb-2">Error Loading Group</h1>
+                    <p className="text-zinc-600 mb-4 text-sm">{groupError?.message || "Group not found in database."}</p>
+                    <pre className="text-xs text-left bg-zinc-100 p-3 rounded mb-4 overflow-auto border border-zinc-200">
+                        {JSON.stringify(groupError, null, 2)}
+                    </pre>
+                    <Link href="/dashboard" className="text-sm font-medium hover:underline">
+                        &larr; Return to Dashboard
+                    </Link>
+                </div>
+            </div>
+        )
     }
 
     // Fetch trips for this group
