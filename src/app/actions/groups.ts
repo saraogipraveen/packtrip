@@ -1,3 +1,5 @@
+"use server"
+
 import { createClient } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
 import { redirect } from "next/navigation"
@@ -18,6 +20,13 @@ export async function createGroup(formData: FormData) {
         redirect("/login")
     }
 
+    // Ensure the user has a profile in the public.profiles table (Fixes FK constraint if trigger didn't fire)
+    await supabase.from("profiles").upsert({
+        id: user.id,
+        email: user.email,
+        name: user.user_metadata?.full_name || user.email
+    })
+
     // Insert group (the database trigger will automatically add them as admin to group_members)
     const { data, error } = await supabase
         .from("groups")
@@ -26,7 +35,9 @@ export async function createGroup(formData: FormData) {
         .single()
 
     if (error) {
-        console.error("Error creating group:", error)
+        console.error("====== SUPABASE INSERTION ERROR ======");
+        console.error(JSON.stringify(error, null, 2));
+        console.error("======================================");
         return { error: "Failed to create group" }
     }
 

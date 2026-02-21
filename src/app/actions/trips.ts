@@ -1,3 +1,5 @@
+"use server"
+
 import { createClient } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
 import { redirect } from "next/navigation"
@@ -17,6 +19,13 @@ export async function createTrip(formData: FormData) {
 
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) redirect("/login")
+
+    // Ensure the user has a profile in the public.profiles table (Fixes FK constraint if trigger didn't fire)
+    await supabase.from("profiles").upsert({
+        id: user.id,
+        email: user.email,
+        name: user.user_metadata?.full_name || user.email
+    })
 
     // Insert trip
     const { data, error } = await supabase

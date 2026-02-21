@@ -32,8 +32,11 @@ export default async function Onboarding() {
         if (user) {
             await supabase
                 .from("profiles")
-                .update({ name })
-                .eq("id", user.id);
+                .upsert({
+                    id: user.id,
+                    name,
+                    email: user.email
+                });
 
             redirect("/dashboard");
         }

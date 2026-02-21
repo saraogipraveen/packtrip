@@ -38,15 +38,15 @@ export default async function GroupPage({ params }: { params: { id: string } }) 
         .eq("group_id", group.id)
 
     return (
-        <div className="min-h-screen bg-zinc-50 font-sans text-zinc-900">
+        <div className="min-h-screen bg-zinc-50 font-sans text-zinc-900 pb-20">
             {/* Navigation */}
-            <nav className="border-b border-zinc-200 bg-white">
-                <div className="max-w-5xl mx-auto px-8 py-4 flex items-center justify-between">
+            <nav className="border-b border-zinc-200 bg-white sticky top-0 z-10">
+                <div className="max-w-5xl mx-auto px-4 md:px-8 py-3 md:py-4 flex items-center justify-between">
                     <Link href="/dashboard" className="text-sm font-medium text-zinc-500 hover:text-zinc-900 flex items-center gap-2">
-                        &larr; Back to Dashboard
+                        &larr; <span className="hidden sm:inline">Back to Dashboard</span><span className="sm:hidden">Back</span>
                     </Link>
                     <div className="flex items-center gap-4">
-                        <span className="text-sm border border-zinc-200 px-3 py-1.5 rounded-full font-medium">
+                        <span className="text-sm border border-zinc-200 px-3 py-1.5 rounded-full font-medium truncate max-w-[150px] sm:max-w-none">
                             {user.email}
                         </span>
                     </div>
@@ -54,16 +54,18 @@ export default async function GroupPage({ params }: { params: { id: string } }) 
             </nav>
 
             {/* Main Content */}
-            <main className="max-w-5xl mx-auto p-8 flex flex-col gap-8">
+            <main className="max-w-5xl mx-auto p-4 md:p-8 flex flex-col gap-6 md:gap-8">
 
                 {/* Header */}
                 <header>
-                    <div className="flex items-start justify-between">
+                    <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
                         <div>
-                            <h1 className="text-4xl font-black tracking-tight">{group.name}</h1>
-                            {group.description && <p className="text-lg text-zinc-500 mt-2 max-w-2xl">{group.description}</p>}
+                            <h1 className="text-3xl md:text-4xl font-black tracking-tight">{group.name}</h1>
+                            {group.description && <p className="text-base md:text-lg text-zinc-500 mt-2 max-w-2xl">{group.description}</p>}
                         </div>
-                        <GroupPageClientButtons groupId={group.id} />
+                        <div className="w-full sm:w-auto self-stretch sm:self-auto flex items-center">
+                            <GroupPageClientButtons groupId={group.id} />
+                        </div>
                     </div>
                 </header>
 
@@ -71,9 +73,11 @@ export default async function GroupPage({ params }: { params: { id: string } }) 
 
                     {/* Left Column - Trips */}
                     <div className="lg:col-span-2 flex flex-col gap-6">
-                        <div className="flex items-center justify-between">
-                            <h2 className="text-2xl font-bold tracking-tight">Trips in {group.name}</h2>
-                            <GroupPageClientButtons groupId={group.id} />
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                            <h2 className="text-xl md:text-2xl font-bold tracking-tight">Trips in {group.name}</h2>
+                            <div className="w-full sm:w-auto">
+                                <GroupPageClientButtons groupId={group.id} />
+                            </div>
                         </div>
 
                         {!trips || trips.length === 0 ? (
