@@ -63,8 +63,7 @@ export default async function GroupPage({ params }: { params: { id: string } }) 
                             <h1 className="text-4xl font-black tracking-tight">{group.name}</h1>
                             {group.description && <p className="text-lg text-zinc-500 mt-2 max-w-2xl">{group.description}</p>}
                         </div>
-                        <button className="bg-white border border-zinc-200 shadow-sm px-4 py-2 rounded-lg text-sm font-medium hover:bg-zinc-50 transition">
-                            <GroupPageClientButtons groupId={group.id} />
+                        <GroupPageClientButtons groupId={group.id} />
                     </div>
                 </header>
 
