@@ -3,6 +3,7 @@ import { redirect } from "next/navigation"
 import Link from "next/link"
 import { AddExpenseButton } from "@/components/AddExpenseButton"
 import { AddItineraryButton } from "@/components/AddItineraryButton"
+import { UploadDocumentButton } from "@/components/UploadDocumentButton"
 import { calculateBalances } from "@/lib/balances"
 import { SettleUpButton } from "@/components/SettleUpButton"
 
@@ -61,6 +62,13 @@ export default async function TripPage({ params }: { params: Promise<{ id: strin
         acc[dateStr].push(curr)
         return acc
     }, {}) || {}
+
+    // Fetch Documents
+    const { data: documents } = await supabase
+        .from("documents")
+        .select("*")
+        .eq("trip_id", trip.id)
+        .order("created_at", { ascending: false })
 
     // Fetch expenses to calculate total
     const { data: expenses } = await supabase
@@ -130,7 +138,8 @@ export default async function TripPage({ params }: { params: Promise<{ id: strin
                             </p>
                         </div>
 
-                        <div className="flex flex-col sm:flex-row gap-3">
+                        <div className="flex flex-col sm:flex-row gap-3 flex-wrap">
+                            <UploadDocumentButton tripId={trip.id} />
                             <AddItineraryButton tripId={trip.id} startDate={trip.start_date} endDate={trip.end_date} />
                             <div className="w-full sm:w-auto flex">
                                 <AddExpenseButton tripId={trip.id} members={safeMembers} />
@@ -211,6 +220,42 @@ export default async function TripPage({ params }: { params: Promise<{ id: strin
 
                     {/* Right Column - Secondary Actions & Files */}
                     <div className="flex flex-col gap-6">
+
+                        {/* Documents Section */}
+                        <div className="bg-white rounded-2xl shadow-sm border border-zinc-200 overflow-hidden">
+                            <div className="p-5 border-b border-zinc-100 bg-zinc-50 flex items-center justify-between">
+                                <h3 className="font-bold text-lg">Documents</h3>
+                                <span className="text-xs font-bold uppercase text-zinc-500">Files</span>
+                            </div>
+                            <div className="p-0">
+                                {!documents || documents.length === 0 ? (
+                                    <div className="p-5 text-center text-sm text-zinc-500">
+                                        No documents uploaded yet.
+                                    </div>
+                                ) : (
+                                    <ul className="divide-y divide-zinc-100">
+                                        {documents.map(doc => (
+                                            <li key={doc.id}>
+                                                <a href={doc.file_url} target="_blank" rel="noreferrer" className="p-4 flex items-center justify-between hover:bg-zinc-50 transition-colors group">
+                                                    <div className="flex items-center gap-3 overflow-hidden">
+                                                        <div className="bg-zinc-100 p-2 rounded-lg shrink-0 text-zinc-500 group-hover:bg-zinc-200 transition-colors">
+                                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                                                        </div>
+                                                        <div className="min-w-0">
+                                                            <p className="font-bold text-sm truncate">{doc.name}</p>
+                                                            <p className="text-xs text-zinc-500 capitalize">{doc.file_type}</p>
+                                                        </div>
+                                                    </div>
+                                                    <div className="text-zinc-300 group-hover:text-zinc-900 transition-colors shrink-0 pl-2">
+                                                        <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
+                                                    </div>
+                                                </a>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                )}
+                            </div>
+                        </div>
 
                         {/* Splitwise Mini-Panel */}
                         <div className="bg-white rounded-2xl shadow-sm border border-zinc-200 overflow-hidden">

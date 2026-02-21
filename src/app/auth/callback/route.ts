@@ -23,19 +23,16 @@ export async function GET(request: Request) {
                 next = '/onboarding'
             }
 
-            const forwardedHost = request.headers.get('x-forwarded-host') // original origin before load balancer
-            const isLocalEnv = process.env.NODE_ENV === 'development'
-            if (isLocalEnv) {
-                // we can be sure that there is no load balancer in between, so no need to watch for X-Forwarded-Host
-                return NextResponse.redirect(`${origin}${next}`)
-            } else if (forwardedHost) {
-                return NextResponse.redirect(`https://${forwardedHost}${next}`)
-            } else {
-                return NextResponse.redirect(`${origin}${next}`)
-            }
+            // Default to the provided site URL, falling back to localhost or the dynamic origin
+            const baseUrl = process.env.NEXT_PUBLIC_SITE_URL
+                ? process.env.NEXT_PUBLIC_SITE_URL
+                : `${origin}`
+
+            return NextResponse.redirect(`${baseUrl}${next}`)
         }
     }
 
     // return the user to an error page with instructions
-    return NextResponse.redirect(`${origin}/login`)
+    const fallbackUrl = process.env.NEXT_PUBLIC_SITE_URL || origin
+    return NextResponse.redirect(`${fallbackUrl}/login`)
 }
