@@ -1,6 +1,9 @@
 import { createClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 import Link from "next/link"
+import { AddExpenseButton } from "@/components/AddExpenseButton"
+import { calculateBalances } from "@/lib/balances"
+import { SettleUpButton } from "@/components/SettleUpButton"
 
 export default async function TripPage({ params }: { params: { id: string } }) {
     const supabase = await createClient()
@@ -19,13 +22,26 @@ export default async function TripPage({ params }: { params: { id: string } }) {
         redirect("/dashboard")
     }
 
-    // Determine user's role in this trip
-    const { data: membership } = await supabase
+    // Fetch all members of this trip to pass to the Expense Splitter
+    const { data: members } = await supabase
         .from("trip_members")
-        .select("role")
+        .select(`
+            user_id,
+            role,
+            profiles:user_id (name)
+        `)
         .eq("trip_id", trip.id)
-        .eq("user_id", user.id)
-        .single()
+
+    const safeMembers = members?.map(m => {
+        const profile = Array.isArray(m.profiles) ? m.profiles[0] : m.profiles;
+        return {
+            id: m.user_id,
+            name: profile && typeof profile === 'object' && 'name' in profile ? String(profile.name) : "Unknown User"
+        }
+    }) || []
+
+    // Determine current user's role in this trip
+    const membership = members?.find(m => m.user_id === user.id)
 
     // Fetch Itinerary
     const { data: itinerary } = await supabase
@@ -35,27 +51,45 @@ export default async function TripPage({ params }: { params: { id: string } }) {
         .order("day_date", { ascending: true })
         .order("start_time", { ascending: true })
 
-    // Calculate generic trip stats based on expenses table (stubbed for now)
+    // Fetch expenses to calculate total
     const { data: expenses } = await supabase
         .from("expenses")
-        .select("amount")
+        .select("id, amount, paid_by")
         .eq("trip_id", trip.id)
 
     const totalSpent = expenses?.reduce((acc, curr) => acc + Number(curr.amount), 0) || 0
 
+    // Fetch splits to calculate Splitwise balances
+    const { data: splits } = await supabase
+        .from("expense_splits")
+        .select("*, expenses!inner(trip_id)")
+        .eq("expenses.trip_id", trip.id)
+
+    const balances = calculateBalances(
+        safeMembers,
+        expenses || [],
+        splits || []
+    )
+
+    const myBalance = balances.find(b => b.userId === user.id)
+    const myStatus = myBalance && Math.abs(myBalance.netBalance) > 0.01
+        ? (myBalance.netBalance > 0 ? `You are owed $${myBalance.netBalance.toFixed(2)}` : `You owe $${Math.abs(myBalance.netBalance).toFixed(2)}`)
+        : "All Settled"
+    const statusColor = myBalance && myBalance.netBalance < -0.01 ? "text-red-600" : "text-green-600"
+
     return (
-        <div className="min-h-screen bg-zinc-50 font-sans text-zinc-900">
+        <div className="min-h-screen bg-zinc-50 font-sans text-zinc-900 pb-20">
             {/* Navigation */}
-            <nav className="border-b border-zinc-200 bg-white">
-                <div className="max-w-5xl mx-auto px-8 py-4 flex items-center justify-between">
+            <nav className="border-b border-zinc-200 bg-white sticky top-0 z-10">
+                <div className="max-w-5xl mx-auto px-4 md:px-8 py-3 md:py-4 flex items-center justify-between">
                     <Link
                         href={trip.group_id ? `/groups/${trip.group_id}` : "/dashboard"}
-                        className="text-sm font-medium text-zinc-500 hover:text-zinc-900 flex items-center gap-2"
+                        className="text-sm font-medium text-zinc-500 hover:text-zinc-900 flex items-center gap-2 truncate pr-4"
                     >
-                        &larr; Back to {trip.group ? trip.group.name : "Dashboard"}
+                        &larr; <span className="hidden sm:inline">Back to {trip.group ? trip.group.name : "Dashboard"}</span><span className="sm:hidden">Back</span>
                     </Link>
-                    <div className="flex items-center gap-4">
-                        <span className="text-sm border border-zinc-200 px-3 py-1.5 rounded-full font-medium">
+                    <div className="flex items-center gap-4 flex-shrink-0">
+                        <span className="text-sm border border-zinc-200 px-3 py-1.5 rounded-full font-medium truncate max-w-[120px] sm:max-w-none">
                             {user.email}
                         </span>
                     </div>
@@ -64,41 +98,41 @@ export default async function TripPage({ params }: { params: { id: string } }) {
 
             {/* Hero Header */}
             <header className="bg-zinc-900 text-white border-b border-zinc-800">
-                <div className="max-w-5xl mx-auto p-8 py-12">
+                <div className="max-w-5xl mx-auto p-4 py-8 md:p-8 md:py-12">
                     <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
                         <div>
-                            <div className="flex gap-3 mb-3">
-                                <span className="bg-white/10 px-3 py-1 rounded-full text-xs font-bold tracking-wide uppercase">
+                            <div className="flex gap-2 mb-3 flex-wrap">
+                                <span className="bg-white/10 px-3 py-1 rounded-full text-[10px] md:text-xs font-bold tracking-wide uppercase">
                                     Upcoming Trip
                                 </span>
                                 {trip.destination && (
-                                    <span className="bg-white/10 px-3 py-1 rounded-full text-xs font-bold tracking-wide uppercase flex items-center gap-1">
-                                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                                    <span className="bg-white/10 px-3 py-1 rounded-full text-[10px] md:text-xs font-bold tracking-wide uppercase flex items-center gap-1">
+                                        <svg className="w-3 h-3 md:w-3.5 md:h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
                                         {trip.destination}
                                     </span>
                                 )}
                             </div>
-                            <h1 className="text-4xl md:text-5xl font-black tracking-tight mb-2">{trip.title}</h1>
-                            <p className="text-zinc-400 text-lg">
+                            <h1 className="text-3xl md:text-5xl font-black tracking-tight mb-2 leading-tight">{trip.title}</h1>
+                            <p className="text-zinc-400 text-base md:text-lg">
                                 {trip.start_date ? new Date(trip.start_date).toLocaleDateString() : "Dates TBD"}
                                 {trip.end_date ? ` - ${new Date(trip.end_date).toLocaleDateString()}` : ""}
                             </p>
                         </div>
 
-                        <div className="flex gap-3">
-                            <button className="bg-white text-zinc-900 px-5 py-2.5 rounded-xl text-sm font-bold hover:bg-zinc-100 transition shadow-sm">
+                        <div className="flex flex-col sm:flex-row gap-3">
+                            <button className="bg-white text-zinc-900 px-5 py-3 md:py-2.5 rounded-xl text-sm font-bold hover:bg-zinc-100 transition shadow-sm w-full sm:w-auto text-center justify-center flex">
                                 Add Itinerary
                             </button>
-                            <button className="bg-white/10 text-white px-5 py-2.5 rounded-xl text-sm font-bold hover:bg-white/20 transition">
-                                Add Expense
-                            </button>
+                            <div className="w-full sm:w-auto flex">
+                                <AddExpenseButton tripId={trip.id} members={safeMembers} />
+                            </div>
                         </div>
                     </div>
                 </div>
             </header>
 
             {/* Main Content */}
-            <main className="max-w-5xl mx-auto p-8 flex flex-col gap-8">
+            <main className="max-w-5xl mx-auto p-4 md:p-8 flex flex-col gap-6 md:gap-8">
 
                 {/* Quick Stats Banner */}
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -108,7 +142,7 @@ export default async function TripPage({ params }: { params: { id: string } }) {
                     </div>
                     <div className="bg-white p-5 rounded-2xl shadow-sm border border-zinc-200 flex flex-col">
                         <span className="text-zinc-500 text-sm font-medium mb-1">My Status</span>
-                        <span className="text-2xl font-bold text-green-600">All Settled</span>
+                        <span className={`text-2xl font-bold ${statusColor}`}>{myStatus}</span>
                     </div>
                     <div className="bg-white p-5 rounded-2xl shadow-sm border border-zinc-200 flex flex-col md:col-span-2">
                         <span className="text-zinc-500 text-sm font-medium mb-1">Your Role</span>
@@ -161,11 +195,42 @@ export default async function TripPage({ params }: { params: { id: string } }) {
                                 <h3 className="font-bold text-lg">Finances</h3>
                                 <span className="text-xs font-bold uppercase text-zinc-500">Overview</span>
                             </div>
-                            <div className="p-5 text-center text-sm text-zinc-500">
-                                No debts tracked yet. <br />Add expenses to see who owes who.
+                            <div className="p-0">
+                                {balances.length === 0 || balances.every(b => b.netBalance === 0) ? (
+                                    <div className="p-5 text-center text-sm text-zinc-500">
+                                        No debts tracked yet. <br />Add expenses to see who owes who.
+                                    </div>
+                                ) : (
+                                    <ul className="divide-y divide-zinc-100">
+                                        {balances.map(balance => {
+                                            if (Math.abs(balance.netBalance) < 0.01) return null; // Skip perfectly flat balances
+
+                                            const isOwed = balance.netBalance > 0;
+
+                                            return (
+                                                <li key={balance.userId} className="p-4 flex items-center justify-between">
+                                                    <div className="flex items-center gap-2">
+                                                        <div className="w-8 h-8 rounded-full bg-zinc-100 flex items-center justify-center font-bold text-zinc-500 text-xs shadow-inner">
+                                                            {balance.name.charAt(0).toUpperCase()}
+                                                        </div>
+                                                        <span className="font-medium text-sm">{balance.userId === user.id ? "You" : balance.name}</span>
+                                                    </div>
+                                                    <div className="flex items-center gap-3">
+                                                        <span className={`text-sm font-bold ${isOwed ? 'text-green-600' : 'text-red-600'}`}>
+                                                            {isOwed ? "+" : "-"}${Math.abs(balance.netBalance).toFixed(2)}
+                                                        </span>
+                                                        {!isOwed && balance.userId !== user.id && membership?.role === 'admin' ? (
+                                                            // If someone owes money (negative balance) and we are the admin, we can settle them
+                                                            <SettleUpButton tripId={trip.id} settledUserId={balance.userId} amount={Math.abs(balance.netBalance)} />
+                                                        ) : null}
+                                                    </div>
+                                                </li>
+                                            )
+                                        })}
+                                    </ul>
+                                )}
                             </div>
                         </div>
-
                         {/* Documents Mini-Panel */}
                         <div className="bg-white rounded-2xl shadow-sm border border-zinc-200 overflow-hidden">
                             <div className="p-5 border-b border-zinc-100 bg-zinc-50 flex items-center justify-between">

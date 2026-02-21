@@ -18,12 +18,12 @@ export default async function Dashboard() {
         .order("created_at", { ascending: false });
 
     return (
-        <div className="min-h-screen bg-zinc-50 font-sans text-zinc-900 p-8">
-            <div className="max-w-5xl mx-auto flex flex-col gap-8">
+        <div className="min-h-screen bg-zinc-50 font-sans text-zinc-900 p-4 md:p-8 pb-24">
+            <div className="max-w-5xl mx-auto flex flex-col gap-6 md:gap-8">
                 <header className="flex items-center justify-between pb-4 border-b border-zinc-200">
                     <div>
-                        <h1 className="text-3xl font-bold tracking-tight">Your Dashboard</h1>
-                        <p className="text-zinc-500 mt-1">Welcome back, {user.user_metadata?.full_name || user.email}</p>
+                        <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Dashboard</h1>
+                        <p className="text-zinc-500 mt-1 text-sm md:text-base">Welcome back, {user.user_metadata?.full_name || user.email}</p>
                     </div>
                     <div className="flex items-center gap-4">
                         <span className="text-sm border border-zinc-200 bg-white px-3 py-1.5 rounded-full font-medium hidden sm:inline-block">
@@ -37,8 +37,8 @@ export default async function Dashboard() {
                     </div>
                 </header>
 
-                <section className="bg-white rounded-2xl shadow-sm border border-zinc-200 p-8">
-                    <div className="flex items-center justify-between mb-6">
+                <section className="bg-white rounded-2xl shadow-sm border border-zinc-200 p-4 sm:p-6 md:p-8">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-4">
                         <h2 className="text-xl font-bold">Your Groups</h2>
                         <DashboardHeaderButtons />
                     </div>
